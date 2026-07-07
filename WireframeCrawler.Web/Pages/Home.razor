@@ -1,7 +1,89 @@
 ﻿@page "/"
+@using Blazor.Extensions
+@using Blazor.Extensions.Canvas
+@using Blazor.Extensions.Canvas.Canvas2D
 
-<PageTitle>Home</PageTitle>
+@* Importamos nuestro Dominio *@
+@using WireframeCrawler.Domain
+@using WireframeCrawler.Domain.Models
 
-<h1>Hello, world!</h1>
+<PageTitle>Wireframe Engine</PageTitle>
 
-Welcome to your new app.
+<div class="game-container">
+    <BECanvas Width="800" Height="600" @ref="_canvasReference" />
+</div>
+
+<style>
+    body {
+        background-color: #111;
+        color: white;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+    }
+    .game-container {
+        border: 2px solid #333;
+        box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+        background-color: black;
+    }
+</style>
+
+@code {
+    private BECanvasComponent _canvasReference = null!;
+    private Canvas2DContext _context = null!;
+
+    // Instancias de nuestro Motor
+    private GameMap _map = null!;
+    private Player _player = null!;
+    private Engine _engine = null!;
+
+    protected override void OnInitialized()
+    {
+        // 1. Inicializamos el estado del mundo al cargar el componente
+        _map = new GameMap();
+        
+        // Colocamos al jugador en la casilla (2, 3) mirando hacia el Norte
+        _player = new Player(2, 3, Direction.North); 
+        
+        // Inicializamos el motor pasándole la misma resolución que tiene el BECanvas
+        _engine = new Engine(800, 600);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _context = await _canvasReference.CreateCanvas2DAsync();
+            await DrawFrameAsync();
+        }
+    }
+
+    private async Task DrawFrameAsync()
+    {
+        await _context.ClearRectAsync(0, 0, 800, 600);
+
+        // Obtenemos los polígonos ordenados de atrás hacia adelante
+        var visibleQuads = _engine.RenderView(_map, _player);
+
+        await _context.SetStrokeStyleAsync("white");
+        await _context.SetFillStyleAsync("black"); // Añadimos el relleno negro opaco
+        await _context.SetLineWidthAsync(2);
+        
+        // Dibujamos cada cara poligonal
+        foreach (var quad in visibleQuads)
+        {
+            await _context.BeginPathAsync();
+            await _context.MoveToAsync(quad.X1, quad.Y1);
+            await _context.LineToAsync(quad.X2, quad.Y2);
+            await _context.LineToAsync(quad.X3, quad.Y3);
+            await _context.LineToAsync(quad.X4, quad.Y4);
+            await _context.ClosePathAsync(); // Cierra el polígono conectando el punto 4 con el 1
+
+            // Orden crítico: Primero rellenamos de negro para ocultar el fondo, luego trazamos la línea blanca
+            await _context.FillAsync();
+            await _context.StrokeAsync();
+        }
+    }
+}
