@@ -15,37 +15,51 @@ public class Engine
         _screenHeight = screenHeight;
     }
 
-    public List<Quad2D> RenderView(GameMap map, Player player)
+    // Mantén tu constructor y el método GetForwardVector intactos.
+    // Añade este nuevo método:
+
+    public List<Quad2D> ScanRadar(GameMap map, Player player, int scanRadius = 4, int cellSize = 40)
     {
-        var lines = new List<Quad2D>();
+        var radarBlips = new List<Quad2D>();
         
-        int maxDepth = 4; // Cuántas casillas hacia adelante dibujamos
-        int viewWidth = 2; // Cuántas casillas hacia la izquierda/derecha dibujamos
+        int centerX = _screenWidth / 2;
+        int centerY = _screenHeight / 2;
 
-        // 1. Obtener vectores de dirección según hacia dónde mira el jugador
-        (int dirX, int dirY) forward = GetForwardVector(player.Facing);
-        (int dirX, int dirY) right = (-forward.dirY, forward.dirX); // Vector perpendicular a la derecha
+        // 1. SOLUCIÓN: Deconstruimos la tupla directamente en dos variables (fwdX, fwdY)
+        (int fwdX, int fwdY) = GetForwardVector(player.Facing);
+        
+        // 2. Calculamos el vector perpendicular derecho usando las nuevas variables
+        int rightX = -fwdY;
+        int rightY = fwdX; 
 
-        // 2. Escanear el mapa de atrás hacia adelante (algoritmo del pintor conceptual)
-        for (int z = maxDepth; z >= 0; z--)
+        for (int z = -scanRadius; z <= scanRadius; z++) 
         {
-            for (int x = -viewWidth; x <= viewWidth; x++)
+            for (int x = -scanRadius; x <= scanRadius; x++) 
             {
-                // Traducir las coordenadas locales (relativas a la cámara) a coordenadas absolutas del mapa
-                int worldX = player.X + (forward.dirX * z) + (right.dirX * x);
-                int worldY = player.Y + (forward.dirY * z) + (right.dirY * x);
+                // 3. Aplicamos las variables matemáticas limpias
+                int worldX = player.X + (fwdX * z) + (rightX * x);
+                int worldY = player.Y + (fwdY * z) + (rightY * x);
 
                 if (map.IsWall(worldX, worldY))
                 {
-                    // Si hay una pared, generamos las líneas del "cubo wireframe"
-                    lines.AddRange(GenerateCubeFaces(x, z));
+                    double screenX = centerX + (x * cellSize);
+                    double screenY = centerY - (z * cellSize); 
+
+                    double offset = cellSize / 2.0;
+                    double padding = 2; 
+
+                    radarBlips.Add(new Quad2D(
+                        screenX - offset + padding, screenY - offset + padding,
+                        screenX + offset - padding, screenY - offset + padding,
+                        screenX + offset - padding, screenY + offset - padding,
+                        screenX - offset + padding, screenY + offset - padding
+                    ));
                 }
             }
         }
-
-        return lines;
+        return radarBlips;
     }
-
+    
     private (int dirX, int dirY) GetForwardVector(Direction facing)
     {
         return facing switch
