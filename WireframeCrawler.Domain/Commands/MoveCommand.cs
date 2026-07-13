@@ -30,8 +30,28 @@ public class MoveCommand : ICommand
             return "[ALERTA] Colisión inminente detectada. Movimiento abortado.";
         }
         
+        // 1. Efectuamos el movimiento a la nueva casilla
         player.X = targetX;
         player.Y = targetY;
-        return _steps > 0 ? "Avanzando coordenadas." : "Retrocediendo coordenadas.";
+        
+        // 2. Preparamos el mensaje base de confirmación de movimiento
+        string response = _steps > 0 ? "Avanzando coordenadas." : "Retrocediendo coordenadas.";
+
+        // 3. Revisamos qué hay debajo de nosotros en la nueva posición
+        Entity? steppedEntity = map.GetEntityAt(player.X, player.Y);
+
+        if (steppedEntity != null)
+        {
+            // El trigger solo informa, no interactúa automáticamente
+            response += steppedEntity.Type switch
+            {
+                EntityType.FoundObject => "\n[SENSOR] Detectas un objeto en el suelo. Usa 'interact' para examinarlo.",
+                EntityType.Passage => "\n[SENSOR] Escotilla o pasaje detectado en estas coordenadas.",
+                EntityType.InteractableZone => "\n[SENSOR] Zona interactuable detectada (Requiere hardware compatible).",
+                _ => "\n[SENSOR] Anomalía bajo la nave."
+            };
+        }
+
+        return response;
     }
 }

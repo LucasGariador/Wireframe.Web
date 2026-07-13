@@ -3,6 +3,7 @@ using WireframeCrawler.Domain.Models;
 
 namespace WireframeCrawler.Domain;
 
+public record EntityBlip(double ScreenX, double ScreenY, EntityType Type);
 public class Engine
 {
     private readonly int _screenWidth;
@@ -15,20 +16,17 @@ public class Engine
         _screenHeight = screenHeight;
     }
 
-    // Mantén tu constructor y el método GetForwardVector intactos.
-    // Añade este nuevo método:
 
-    public List<Quad2D> ScanRadar(GameMap map, Player player, int scanRadius = 4, int cellSize = 40)
+    public (List<Quad2D> Walls, List<EntityBlip> Entities) ScanRadar(GameMap map, Player player, int scanRadius = 4, int cellSize = 40)
     {
-        var radarBlips = new List<Quad2D>();
+        var radarWalls = new List<Quad2D>();
+        var radarEntities = new List<EntityBlip>(); // Nueva lista para entidades
         
         int centerX = _screenWidth / 2;
         int centerY = _screenHeight / 2;
 
-        // 1. SOLUCIÓN: Deconstruimos la tupla directamente en dos variables (fwdX, fwdY)
         (int fwdX, int fwdY) = GetForwardVector(player.Facing);
         
-        // 2. Calculamos el vector perpendicular derecho usando las nuevas variables
         int rightX = -fwdY;
         int rightY = fwdX; 
 
@@ -36,28 +34,41 @@ public class Engine
         {
             for (int x = -scanRadius; x <= scanRadius; x++) 
             {
-                // 3. Aplicamos las variables matemáticas limpias
                 int worldX = player.X + (fwdX * z) + (rightX * x);
                 int worldY = player.Y + (fwdY * z) + (rightY * x);
 
+                // Calculamos el centro exacto de esta casilla en la pantalla del radar
+                double screenX = centerX + (x * cellSize);
+                double screenY = centerY - (z * cellSize); 
+
                 if (map.IsWall(worldX, worldY))
                 {
-                    double screenX = centerX + (x * cellSize);
-                    double screenY = centerY - (z * cellSize); 
-
                     double offset = cellSize / 2.0;
                     double padding = 2; 
 
-                    radarBlips.Add(new Quad2D(
+                    radarWalls.Add(new Quad2D(
                         screenX - offset + padding, screenY - offset + padding,
                         screenX + offset - padding, screenY - offset + padding,
                         screenX + offset - padding, screenY + offset - padding,
                         screenX - offset + padding, screenY + offset - padding
                     ));
                 }
+                else
+                {
+                    // Si no es pared, buscamos si hay alguna entidad en esta coordenada (worldX, worldY)
+                    foreach (var entity in map.Entities)
+                    {
+                        if (entity.X == worldX && entity.Y == worldY)
+                        {
+                            // Si la hay, la añadimos a la lista de blips proyectados
+                            radarEntities.Add(new EntityBlip(screenX, screenY, entity.Type));
+                        }
+                    }
+                }
             }
         }
-        return radarBlips;
+        
+        return (radarWalls, radarEntities);
     }
     
     private (int dirX, int dirY) GetForwardVector(Direction facing)

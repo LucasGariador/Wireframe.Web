@@ -18,7 +18,7 @@
         </div>
         <div class="input-container">
             <span class="prompt">></span>
-            <!-- Al presionar Enter, ejecutamos el comando -->
+
             <input type="text" class="command-input" @bind="_currentCommand" @bind:event="oninput" @onkeyup="HandleKeyUp" autofocus placeholder="Ingresar comando..." autocomplete="off" />
         </div>
     </div>
@@ -194,14 +194,16 @@
     {
         await _context.ClearRectAsync(0, 0, 400, 400);
 
-        var radarBlips = _engine.ScanRadar(_map, _player, 5, 40);
+        // 1. Recibimos la Tupla con muros y entidades
+        var radarData = _engine.ScanRadar(_map, _player, 5, 40);
 
         string terminalGreen = "#33ff33";
         await _context.SetStrokeStyleAsync(terminalGreen);
         await _context.SetFillStyleAsync(terminalGreen);
         await _context.SetLineWidthAsync(2);
 
-        foreach (var blip in radarBlips)
+        // 2. Dibujamos los muros (radarData.Walls)
+        foreach (var blip in radarData.Walls)
         {
             await _context.BeginPathAsync();
             await _context.MoveToAsync(blip.X1, blip.Y1);
@@ -212,6 +214,34 @@
             await _context.StrokeAsync(); 
         }
 
+        // 3. Dibujamos las Entidades dinámicamente (radarData.Entities)
+        foreach (var ent in radarData.Entities)
+        {
+            await _context.BeginPathAsync();
+            
+            if (ent.Type == EntityType.Passage) // Círculo
+            {
+                await _context.ArcAsync(ent.ScreenX, ent.ScreenY, 10, 0, Math.PI * 2);
+            }
+            else if (ent.Type == EntityType.InteractableZone) // Cuadrado
+            {
+                await _context.StrokeRectAsync(ent.ScreenX - 8, ent.ScreenY - 8, 16, 16);
+            }
+            else if (ent.Type == EntityType.FoundObject) // 'X' (Objeto a recolectar)
+            {
+                int size = 6;
+                // Línea diagonal \
+                await _context.MoveToAsync(ent.ScreenX - size, ent.ScreenY - size);
+                await _context.LineToAsync(ent.ScreenX + size, ent.ScreenY + size);
+                // Línea diagonal /
+                await _context.MoveToAsync(ent.ScreenX + size, ent.ScreenY - size);
+                await _context.LineToAsync(ent.ScreenX - size, ent.ScreenY + size);
+            }
+            
+            await _context.StrokeAsync();
+        }
+
+        // 4. Dibujar al jugador (Nave en el centro)
         int centerX = 200; 
         int centerY = 200; 
         

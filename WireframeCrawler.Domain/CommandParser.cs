@@ -20,7 +20,9 @@ public class CommandParser
             { "left", new RotateCommand(-1) },
             { "a", new RotateCommand(-1) },
             { "right", new RotateCommand(1) },
-            { "d", new RotateCommand(1) }
+            { "d", new RotateCommand(1) },
+            { "interact", new InteractCommand() }
+
         };
     }
 
